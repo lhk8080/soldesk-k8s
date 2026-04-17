@@ -1,0 +1,20 @@
+# prod 환경 오버라이드.
+# - 이미지 repository는 ECR 풀 패스로 교체.
+# - tag는 soldesk-app의 GH Action이 빌드 후 commit (자동 갱신 영역).
+# - sqs-access-sa의 IRSA role ARN은 terraform output 기반으로 채움.
+
+images:
+  was:
+    repository: 758497005571.dkr.ecr.ap-northeast-2.amazonaws.com/ticketing/ticketing-was
+    tag: latest    # CI가 갱신
+  worker:
+    repository: 758497005571.dkr.ecr.ap-northeast-2.amazonaws.com/ticketing/worker-svc
+    tag: latest    # CI가 갱신
+
+serviceAccounts:
+  sqs-access-sa:
+    annotations:
+      eks.amazonaws.com/role-arn: arn:aws:iam::758497005571:role/ticketing-sqs-access-role
+
+# prod 전용 replica/리소스 오버라이드는 필요 시 services.<name>으로 추가.
+# 예) services: { read-api: { replicas: 3 } }

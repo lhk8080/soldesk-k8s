@@ -1,0 +1,16 @@
+{{- range $name, $svc := .Values.services }}
+{{- if and $svc.service $svc.service.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace }}
+spec:
+  selector:
+    {{- include "ticketing.selectorLabels" (dict "name" $name) | nindent 4 }}
+  ports:
+    - port: {{ $svc.port }}
+      targetPort: {{ $svc.port }}
+{{- end }}
+{{- end }}

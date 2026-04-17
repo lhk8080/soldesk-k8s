@@ -1,0 +1,119 @@
+{{- range $name, $svc := .Values.services }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}
+  namespace: {{ $.Values.namespace }}
+  labels:
+    {{- include "ticketing.commonLabels" (dict "name" $name "root" $) | nindent 4 }}
+spec:
+  replicas: {{ $svc.replicas | default 1 }}
+  selector:
+    matchLabels:
+      {{- include "ticketing.selectorLabels" (dict "name" $name) | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "ticketing.selectorLabels" (dict "name" $name) | nindent 8 }}
+    spec:
+      enableServiceLinks: {{ $svc.enableServiceLinks | default false }}
+      {{- with $svc.priorityClassName }}
+      priorityClassName: {{ . }}
+      {{- end }}
+      {{- with $svc.serviceAccountName }}
+      serviceAccountName: {{ . }}
+      {{- end }}
+      {{- if $svc.affinity }}
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: {{ $svc.affinity.antiWeight | default 50 }}
+              podAffinityTerm:
+                labelSelector:
+                  matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                        {{- range $svc.affinity.antiColocateWith }}
+                        - {{ . }}
+                        {{- end }}
+                topologyKey: kubernetes.io/hostname
+      {{- end }}
+      {{- if $svc.topologySpread }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: {{ $name }}
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: {{ $name }}
+      {{- end }}
+      containers:
+        - name: {{ $name }}
+          image: {{ include "ticketing.imageRef" (dict "imageKey" $svc.image "root" $) }}
+          imagePullPolicy: {{ (index $.Values.images $svc.image).pullPolicy | default "Always" }}
+          {{- with $svc.command }}
+          command:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - containerPort: {{ $svc.port }}
+          envFrom:
+            - configMapRef:
+                name: {{ $.Values.configMapName }}
+            - secretRef:
+                name: {{ $.Values.secretName }}
+          {{- with $svc.extraEnv }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $svc.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with $svc.probes }}
+          {{- with .startup }}
+          startupProbe:
+            httpGet:
+              path: {{ .path }}
+              port: {{ .port }}
+            {{- with .periodSeconds }}     {{/* */}}
+            periodSeconds: {{ . }}
+            {{- end }}
+            {{- with .failureThreshold }}
+            failureThreshold: {{ . }}
+            {{- end }}
+          {{- end }}
+          {{- with .liveness }}
+          livenessProbe:
+            httpGet:
+              path: {{ .path }}
+              port: {{ .port }}
+            {{- with .initialDelaySeconds }}
+            initialDelaySeconds: {{ . }}
+            {{- end }}
+            {{- with .periodSeconds }}
+            periodSeconds: {{ . }}
+            {{- end }}
+          {{- end }}
+          {{- with .readiness }}
+          readinessProbe:
+            httpGet:
+              path: {{ .path }}
+              port: {{ .port }}
+            {{- with .initialDelaySeconds }}
+            initialDelaySeconds: {{ . }}
+            {{- end }}
+            {{- with .periodSeconds }}
+            periodSeconds: {{ . }}
+            {{- end }}
+          {{- end }}
+          {{- end }}
+{{- end }}

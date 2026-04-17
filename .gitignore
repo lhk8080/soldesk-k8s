@@ -1,0 +1,22 @@
+# Helm
+charts/*/charts/
+charts/*/Chart.lock
+*.tgz
+
+# Rendered output (디버깅용)
+rendered/
+
+# Secrets / 자격 증명
+*.pem
+*.key
+secrets.yaml
+.env
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Claude Code
+.claude/

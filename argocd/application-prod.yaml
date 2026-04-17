@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ticketing-prod
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/lhk8080/soldesk-k8s.git
+    targetRevision: main
+    path: charts/ticketing
+    helm:
+      releaseName: ticketing
+      valueFiles:
+        # base values.yaml은 자동으로 로드되고, 아래 파일이 환경별 오버라이드
+        - ../../environments/prod/values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ticketing
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true   # git을 단일 진실로 — 수동 변경은 즉시 원복
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
