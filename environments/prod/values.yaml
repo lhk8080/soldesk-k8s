@@ -1,18 +1,28 @@
-# prod 환경 오버라이드.
-# - 이미지 repository는 ECR 풀 패스로 교체.
-# - tag는 soldesk-app의 GH Action이 빌드 후 commit (자동 갱신 영역).
-# - sqs-access-sa의 IRSA role ARN은 terraform output 기반으로 채움.
+# prod 환경 오버라이드 (계정 중립).
+#
+# 계정/리전/태그/IRSA role ARN 은 ArgoCD Application CR 의 spec.source.helm.parameters
+# 로 런타임 주입. 이 파일에는 계정 고유 정보가 들어가지 않으므로 팀원들이 자기
+# AWS 계정에서 동일 repo 를 공유해도 충돌 없음.
+#
+# 주입되는 파라미터 (soldesk-infra/terraform/apply.sh + soldesk-app/scripts/seed.sh):
+#   images.was.repository
+#   images.was.tag
+#   images.worker.repository
+#   images.worker.tag
+#   serviceAccounts.sqs-access-sa.annotations.eks\.amazonaws\.com/role-arn
 
 images:
   was:
-    repository: 758497005571.dkr.ecr.ap-northeast-2.amazonaws.com/ticketing/ticketing-was
-    tag: f86491793829 # CI가 갱신
+    # placeholder — Application parameters 로 덮어씀
+    repository: ticketing/ticketing-was
+    tag: seed-pending
   worker:
-    repository: 758497005571.dkr.ecr.ap-northeast-2.amazonaws.com/ticketing/worker-svc
-    tag: f86491793829 # CI가 갱신
+    repository: ticketing/worker-svc
+    tag: seed-pending
+
 serviceAccounts:
   sqs-access-sa:
     annotations:
-      eks.amazonaws.com/role-arn: arn:aws:iam::758497005571:role/ticketing-sqs-access-role
-# prod 전용 replica/리소스 오버라이드는 필요 시 services.<name>으로 추가.
-# 예) services: { read-api: { replicas: 3 } }
+      eks.amazonaws.com/role-arn: ""
+
+# prod 전용 replica/리소스 오버라이드는 필요 시 services.<name> 으로 추가.

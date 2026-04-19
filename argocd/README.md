@@ -1,85 +1,64 @@
-# ArgoCD 전환 가이드
+# ArgoCD 부트스트랩 가이드
 
-기존 `sxk34/soldesk` (kustomize) → 신규 `lhk8080/soldesk-k8s` (Helm) 로 이관.
+이 레포는 **계정 중립** 상태로 유지된다. 계정 ID / ECR 풀 패스 / 이미지 태그 /
+IRSA role ARN 등 팀원 계정마다 달라지는 값은 ArgoCD Application CR 의
+`spec.source.helm.parameters` 로 런타임 주입한다.
 
-## 전환 전 체크
+## 구성 요소
 
-| 항목 | 기존 (sxk34/soldesk) | 신규 (lhk8080/soldesk-k8s) |
-|---|---|---|
-| Application name | `ticketing` | `ticketing-prod` |
-| repoURL | `https://github.com/sxk34/soldesk.git` | `https://github.com/lhk8080/soldesk-k8s.git` |
-| path | `k8s` (kustomize) | `charts/ticketing` (Helm) |
-| namespace | `ticketing` | `ticketing` (동일 — 충돌 주의) |
-| 이미지 태그 공급 | 수동/kustomize edit | soldesk-app CI가 `environments/prod/values.yaml` bump |
+| 위치 | 역할 |
+|---|---|
+| `environments/<env>/values.yaml` | 계정 중립 placeholder + 환경별 공통 오버라이드 |
+| `charts/ticketing/` | Helm chart 본체 |
+| (동적 생성) ArgoCD Application CR | `soldesk-infra/terraform/apply.sh` 가 terraform output 을 읽어 생성 → `kubectl apply` |
 
-두 Application이 같은 namespace·리소스를 노리므로 **동시 존재 금지**. 반드시 기존을 먼저 제거.
+## 반복 배포 흐름
 
-## 1. 레포 인증 (private repo 인 경우에만)
+1. **인프라 부트스트랩** (`soldesk-infra/terraform/apply.sh`)
+   - EKS + ArgoCD + ALB Controller + KEDA
+   - Application CR 생성 (image tag 는 `seed-pending` 또는 이전 값 보존)
+2. **이미지 시드 / 재배포** (`soldesk-app/scripts/seed.sh`)
+   - 현재 git HEAD SHA 로 이미지 빌드 → 팀원 자기 ECR 에 push
+   - `kubectl patch` 로 Application 의 `images.*.tag` parameter 갱신
+   - ArgoCD 가 즉시 재동기화 → 새 SHA 이미지로 pod 교체
+   - 프론트엔드 S3 sync + CloudFront 무효화
 
-soldesk-k8s 가 private 이면 ArgoCD 에 credential 등록.
-
-```bash
-kubectl -n argocd create secret generic soldesk-k8s-repo \
-  --from-literal=type=git \
-  --from-literal=url=https://github.com/lhk8080/soldesk-k8s.git \
-  --from-literal=username=lhk8080 \
-  --from-literal=password="$GITHUB_PAT"   # repo:read 권한 PAT
-
-kubectl -n argocd label secret soldesk-k8s-repo \
-  argocd.argoproj.io/secret-type=repository
-```
-
-public 이면 생략.
-
-## 2. 기존 Application 제거
-
-`selfHeal: true` 때문에 Application 이 살아 있으면 하위 리소스가 재생성됨 — 반드시 Application 먼저 삭제.
+## Application 수동 조작
 
 ```bash
-# finalizer 로 하위 리소스도 같이 정리됨
-kubectl -n argocd delete application ticketing
+# 현재 사용중인 이미지 태그 확인
+kubectl -n argocd get application ticketing-prod \
+  -o jsonpath='{range .spec.source.helm.parameters[?(@.name=="images.was.tag")]}{.value}{end}'
 
-# 정리 확인 (pod/deploy 가 모두 사라져야 함)
-kubectl -n ticketing get all
+# 특정 SHA 로 수동 롤백
+kubectl -n argocd patch application ticketing-prod --type merge -p '
+spec:
+  source:
+    helm:
+      parameters:
+        - { name: images.was.tag,    value: <이전 SHA> }
+        - { name: images.worker.tag, value: <이전 SHA> }
+'
+kubectl -n argocd annotate application ticketing-prod \
+  argocd.argoproj.io/refresh=hard --overwrite
 ```
 
-하위 리소스가 잔존하면:
+ECR 에 그 SHA 이미지가 남아있어야 함. 수명 정책(lifecycle policy) 확인 필요.
+
+## 멀티 계정 재현
+
+팀원 B 가 자기 AWS 계정에서 동일하게 재현하려면:
+
 ```bash
-kubectl -n argocd patch application ticketing -p '{"metadata":{"finalizers":null}}' --type=merge
-kubectl -n ticketing delete all --all
+# 1. 인프라
+git clone <B 의 soldesk-infra>
+cd soldesk-infra/terraform
+./apply.sh                      # 자기 계정 ID 로 Application 생성
+
+# 2. 앱 이미지 + 프론트엔드
+git clone https://github.com/lhk8080/soldesk-app    # 공용 repo
+cd soldesk-app
+bash scripts/seed.sh            # 자기 계정 ECR 에 push + Application patch
 ```
 
-## 3. 신규 Application 적용
-
-```bash
-kubectl apply -f argocd/application-prod.yaml
-```
-
-적용 후 확인:
-```bash
-kubectl -n argocd get application ticketing-prod -w
-argocd app get ticketing-prod        # argocd CLI 사용 시
-```
-
-초기 sync 에서 각 Deployment 가 Healthy 로 전환되면 성공. values.yaml 의 `images.*.tag` 가 `latest` 로 되어 있으면 soldesk-app CI 가 bump 할 때까지 기다리거나, 수동으로 한 번 돌린다.
-
-## 4. 롤백
-
-Helm chart 변경으로 문제 생기면:
-- `environments/prod/values.yaml` 이전 커밋으로 revert → push → ArgoCD auto-sync
-- 또는 `argocd app rollback ticketing-prod <REVISION>` (History 는 `argocd app history ticketing-prod`)
-
-## 5. staging 추가 시
-
-1. `environments/staging/values.yaml` 생성
-2. 이 디렉토리에 `application-staging.yaml` 추가 (`application-prod.yaml` 복사, `name`/valueFiles 경로 수정)
-3. 동일 순서로 apply
-
-## 체크리스트
-
-- [ ] (private 인 경우) ArgoCD repo secret 등록
-- [ ] `kubectl -n argocd delete application ticketing`
-- [ ] `kubectl -n ticketing get all` → 비어 있음 확인
-- [ ] `kubectl apply -f argocd/application-prod.yaml`
-- [ ] ArgoCD UI 에서 Healthy/Synced 확인
-- [ ] soldesk-app 에 빈 커밋 push → CI 가 values.yaml 태그 bump → ArgoCD 자동 sync 하는지 end-to-end 확인
+이 레포(`soldesk-k8s`) 는 **읽기 전용** 이라 fork 불필요.
