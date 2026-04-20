@@ -1,0 +1,111 @@
+{{- if .Values.cloudwatchExporter.enabled }}
+# prom/cloudwatch-exporter 설정 (YAML). region/namespace 별로 GetMetricData 로 pull.
+# 각 metric 의 aws_dimensions 에 맞춰 dimension 필터링. IAM 정책은 tag:GetResources 포함.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudwatch-exporter-config
+  namespace: {{ .Values.namespace }}
+  labels:
+    {{- include "monitoring.labels" . | nindent 4 }}
+data:
+  config.yml: |
+    region: {{ .Values.cloudwatchExporter.region }}
+    period_seconds: 60
+    metrics:
+      # ── ElastiCache (Redis) ──────────────────────────────
+      - aws_namespace: AWS/ElastiCache
+        aws_metric_name: CPUUtilization
+        aws_dimensions: [CacheClusterId]
+        aws_statistics: [Average, Maximum]
+      - aws_namespace: AWS/ElastiCache
+        aws_metric_name: EngineCPUUtilization
+        aws_dimensions: [CacheClusterId]
+        aws_statistics: [Average, Maximum]
+      - aws_namespace: AWS/ElastiCache
+        aws_metric_name: DatabaseMemoryUsagePercentage
+        aws_dimensions: [CacheClusterId]
+        aws_statistics: [Average, Maximum]
+      - aws_namespace: AWS/ElastiCache
+        aws_metric_name: CurrConnections
+        aws_dimensions: [CacheClusterId]
+        aws_statistics: [Average, Maximum]
+      - aws_namespace: AWS/ElastiCache
+        aws_metric_name: Evictions
+        aws_dimensions: [CacheClusterId]
+        aws_statistics: [Sum]
+
+      # ── RDS (MySQL) ──────────────────────────────────────
+      - aws_namespace: AWS/RDS
+        aws_metric_name: CPUUtilization
+        aws_dimensions: [DBInstanceIdentifier]
+        aws_statistics: [Average, Maximum]
+      - aws_namespace: AWS/RDS
+        aws_metric_name: DatabaseConnections
+        aws_dimensions: [DBInstanceIdentifier]
+        aws_statistics: [Average, Maximum]
+      - aws_namespace: AWS/RDS
+        aws_metric_name: FreeableMemory
+        aws_dimensions: [DBInstanceIdentifier]
+        aws_statistics: [Average, Minimum]
+      - aws_namespace: AWS/RDS
+        aws_metric_name: ReadLatency
+        aws_dimensions: [DBInstanceIdentifier]
+        aws_statistics: [Average, Maximum]
+      - aws_namespace: AWS/RDS
+        aws_metric_name: WriteLatency
+        aws_dimensions: [DBInstanceIdentifier]
+        aws_statistics: [Average, Maximum]
+      - aws_namespace: AWS/RDS
+        aws_metric_name: ReplicaLag
+        aws_dimensions: [DBInstanceIdentifier]
+        aws_statistics: [Average, Maximum]
+
+      # ── SQS ──────────────────────────────────────────────
+      - aws_namespace: AWS/SQS
+        aws_metric_name: ApproximateNumberOfMessagesVisible
+        aws_dimensions: [QueueName]
+        aws_statistics: [Average, Maximum]
+      - aws_namespace: AWS/SQS
+        aws_metric_name: ApproximateNumberOfMessagesNotVisible
+        aws_dimensions: [QueueName]
+        aws_statistics: [Average, Maximum]
+      - aws_namespace: AWS/SQS
+        aws_metric_name: ApproximateAgeOfOldestMessage
+        aws_dimensions: [QueueName]
+        aws_statistics: [Average, Maximum]
+      - aws_namespace: AWS/SQS
+        aws_metric_name: NumberOfMessagesSent
+        aws_dimensions: [QueueName]
+        aws_statistics: [Sum]
+      - aws_namespace: AWS/SQS
+        aws_metric_name: NumberOfMessagesReceived
+        aws_dimensions: [QueueName]
+        aws_statistics: [Sum]
+
+      # ── ALB ──────────────────────────────────────────────
+      - aws_namespace: AWS/ApplicationELB
+        aws_metric_name: RequestCount
+        aws_dimensions: [LoadBalancer]
+        aws_statistics: [Sum]
+      - aws_namespace: AWS/ApplicationELB
+        aws_metric_name: TargetResponseTime
+        aws_dimensions: [LoadBalancer]
+        aws_statistics: [Average, Maximum]
+      - aws_namespace: AWS/ApplicationELB
+        aws_metric_name: HTTPCode_Target_5XX_Count
+        aws_dimensions: [LoadBalancer]
+        aws_statistics: [Sum]
+      - aws_namespace: AWS/ApplicationELB
+        aws_metric_name: HTTPCode_Target_4XX_Count
+        aws_dimensions: [LoadBalancer]
+        aws_statistics: [Sum]
+      - aws_namespace: AWS/ApplicationELB
+        aws_metric_name: HealthyHostCount
+        aws_dimensions: [LoadBalancer, TargetGroup]
+        aws_statistics: [Average, Minimum]
+      - aws_namespace: AWS/ApplicationELB
+        aws_metric_name: UnHealthyHostCount
+        aws_dimensions: [LoadBalancer, TargetGroup]
+        aws_statistics: [Average, Maximum]
+{{- end }}

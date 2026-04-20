@@ -1,0 +1,6 @@
+apiVersion: v2
+name: monitoring
+description: Monitoring 사이드카 리소스 (cloudwatch-exporter, redis-exporter, ESO secrets). kube-prometheus-stack 차트 자체는 ArgoCD Application(platform/)으로 별도 설치.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"

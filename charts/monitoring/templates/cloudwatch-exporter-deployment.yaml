@@ -1,0 +1,54 @@
+{{- if .Values.cloudwatchExporter.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloudwatch-exporter
+  namespace: {{ .Values.namespace }}
+  labels:
+    app: cloudwatch-exporter
+    {{- include "monitoring.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cloudwatch-exporter
+  template:
+    metadata:
+      labels:
+        app: cloudwatch-exporter
+      annotations:
+        # ConfigMap 변경 시 Pod 자동 재시작 트리거
+        checksum/config: {{ include (print $.Template.BasePath "/cloudwatch-exporter-configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ .Values.cloudwatchExporter.serviceAccountName }}
+      containers:
+        - name: exporter
+          image: {{ .Values.cloudwatchExporter.image }}
+          args:
+            - --config.file=/config/config.yml
+          ports:
+            - name: metrics
+              containerPort: {{ .Values.cloudwatchExporter.port }}
+          readinessProbe:
+            httpGet:
+              path: /-/healthy
+              port: metrics
+            initialDelaySeconds: 15
+            periodSeconds: 30
+          livenessProbe:
+            httpGet:
+              path: /-/healthy
+              port: metrics
+            initialDelaySeconds: 30
+            periodSeconds: 60
+          resources:
+            {{- toYaml .Values.cloudwatchExporter.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: cloudwatch-exporter-config
+{{- end }}
