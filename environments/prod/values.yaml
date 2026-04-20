@@ -24,5 +24,11 @@ serviceAccounts:
   sqs-access-sa:
     annotations:
       eks.amazonaws.com/role-arn: ""
+  ticketing-eso-sa:
+    annotations:
+      eks.amazonaws.com/role-arn: ""
+
+# externalSecrets.ssmPrefix / region 도 apply.sh가 Application parameter로 주입.
+# 차트 기본값(/ticketing/prod, ap-northeast-2)이 이 환경과 동일해서 명시 오버라이드는 생략 가능.
 
 # prod 전용 replica/리소스 오버라이드는 필요 시 services.<name> 으로 추가.

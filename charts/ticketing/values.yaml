@@ -30,6 +30,19 @@ serviceAccounts:
   sqs-access-sa:
     annotations:
       eks.amazonaws.com/role-arn: ""   # 환경별 values에서 채움 (terraform output)
+  # ESO가 ticketing-secrets를 머티리얼라이즈할 때 사용. SecretStore.spec.provider.aws.auth.jwt.serviceAccountRef 가 이 SA를 참조.
+  ticketing-eso-sa:
+    annotations:
+      eks.amazonaws.com/role-arn: ""   # apply.sh가 terraform output external_secrets_role_arn 으로 주입
+
+# ── External Secrets Operator (SSM → ticketing-secrets) ─────────────────────
+externalSecrets:
+  enabled: true
+  region: ap-northeast-2
+  ssmPrefix: /ticketing/prod              # apply.sh가 terraform output ssm_parameter_prefix 로 주입
+  serviceAccountName: ticketing-eso-sa
+  secretStoreName: ticketing-ssm
+  refreshInterval: 1h                     # SSM 변경 → Secret 반영 주기. 즉시 반영하려면 ExternalSecret을 annotate force-sync.
 
 # ── ConfigMap data ────────────────────────────────────────────────────────────
 config:
