@@ -207,7 +207,7 @@ keda:
   triggerAuthentication:
     name: keda-worker-sqs-aws
     podIdentityProvider: aws
-    identityOwner: workload
+    identityOwner: keda
 
 # ── Ingress ──────────────────────────────────────────────────────────────────
 ingress:
