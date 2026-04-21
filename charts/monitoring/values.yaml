@@ -74,3 +74,16 @@ redisExporter:
     interval: 30s
     labels:
       release: kube-prometheus-stack
+
+# PrometheusRule (ticketing 앱/인프라 알람).
+prometheusRules:
+  enabled: true
+
+# Grafana Ingress — ALB ticketing group 에 /grafana 로 붙임.
+grafanaIngress:
+  enabled: true
+  scheme: internet-facing
+  groupName: ticketing
+  groupOrder: 200
+  serviceName: kube-prometheus-stack-grafana
+  servicePort: 80
