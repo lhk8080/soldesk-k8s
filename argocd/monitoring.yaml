@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/lhk8080/soldesk-k8s.git
+    targetRevision: HEAD
+    path: charts/monitoring
+    helm:
+      valueFiles:
+        - ../../environments/prod/monitoring-values.yaml
+      # apply.sh 런타임 주입:
+      # --helm-set esoRoleArn=<ARN>
+      # --helm-set awsRegion=<REGION>
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

@@ -1,6 +1,12 @@
 apiVersion: v2
 name: monitoring
-description: Monitoring 사이드카 리소스 (cloudwatch-exporter, redis-exporter, ESO secrets). kube-prometheus-stack 차트 자체는 ArgoCD Application(platform/)으로 별도 설치.
+description: Monitoring stack — kube-prometheus-stack + Loki
 type: application
 version: 0.1.0
-appVersion: "0.1.0"
+dependencies:
+  - name: kube-prometheus-stack
+    version: "65.x.x"
+    repository: https://prometheus-community.github.io/helm-charts
+  - name: loki
+    version: "6.x.x"
+    repository: https://grafana.github.io/helm-charts

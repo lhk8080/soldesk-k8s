@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-svc
+  namespace: ticketing
+  labels:
+    app: worker-svc
+    pool: stable
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker-svc
+      pool: stable
+  template:
+    metadata:
+      labels:
+        app: worker-svc
+        pool: stable
+    spec:
+      priorityClassName: ticketing-priority-worker-bulk-stable
+      enableServiceLinks: false
+      serviceAccountName: sqs-access-sa
+      containers:
+        - name: worker-svc
+          image: {{ .Values.image.worker.repository }}:{{ .Values.image.worker.tag }}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5002
+          envFrom:
+            - configMapRef:
+                name: ticketing-config
+            - secretRef:
+                name: ticketing-secrets
+          env:
+            - name: WORKER_SQS_BATCH_CONCURRENCY
+              value: "20"
+            - name: WORKER_SQS_POLLERS
+              value: "2"
+            - name: WORKER_DB_MAX_CONCURRENT
+              value: "40"
+          resources:
+            requests:
+              memory: "200Mi"
+              cpu: "200m"
+            limits:
+              memory: "256Mi"
+              cpu: "300m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5002
+            initialDelaySeconds: 10
+            periodSeconds: 15

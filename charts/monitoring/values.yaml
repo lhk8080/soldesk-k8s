@@ -1,89 +1,60 @@
-# monitoring 차트 기본값 (계정 중립).
-# 계정 고유 값(ARN, SSM prefix, region)은 ArgoCD Application 의 helm.parameters 로 주입.
+# 런타임 주입: apply.sh → helm.parameters 로 전달
+esoRoleArn: ""
+awsRegion: ap-northeast-2
+ssmPrefix: /ticketing/prod
 
-namespace: monitoring
-
-# ESO(External Secrets Operator) 연동.
-# terraform modules/external_secrets 의 IAM role 은 monitoring-eso-sa 도 trust 하도록 확장됨.
-externalSecrets:
-  enabled: true
-  serviceAccountName: monitoring-eso-sa
-  secretStoreName: monitoring-ssm
-  # 배포 시 Application parameter 로 덮어쓴다.
-  roleArn: ""
-  region: ap-northeast-2
-  ssmPrefix: /ticketing/prod
+externalSecret:
+  secretStoreName: aws-parameter-store
   refreshInterval: 1h
+  grafanaAdminPasswordKey: /ticketing/prod/GRAFANA_ADMIN_PASSWORD
+  slackWebhookKey: /ticketing/prod/ALERTMANAGER_SLACK_WEBHOOK
 
-# Grafana admin 크레덴셜. kube-prometheus-stack 의 grafana.admin.existingSecret 으로 참조.
-grafanaAdmin:
-  enabled: true
-  secretName: grafana-admin
-  userKey: admin-user
-  passwordKey: admin-password
+kube-prometheus-stack:
+  namespaceOverride: monitoring
+  grafana:
+    adminPassword: ""  # ESO로 주입 (grafana-admin-secret)
+    existingSecret: grafana-admin-secret
+    adminUser: admin
+    priorityClassName: ticketing-priority-platform
+    persistence:
+      enabled: true
+      storageClassName: gp3
+      size: 10Gi
+    sidecar:
+      dashboards:
+        enabled: true
+        label: grafana_dashboard
+  prometheus:
+    prometheusSpec:
+      priorityClassName: ticketing-priority-platform
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            storageClassName: gp3
+            accessModes: [ReadWriteOnce]
+            resources:
+              requests:
+                storage: 30Gi
+  alertmanager:
+    alertmanagerSpec:
+      priorityClassName: ticketing-priority-platform
+  prometheusOperator:
+    priorityClassName: ticketing-priority-platform
 
-# Alertmanager Slack receiver 용 webhook URL.
-# kube-prometheus-stack values 에서 alertmanager.secret 으로 마운트하거나, env 로 주입.
-alertmanagerSlack:
-  enabled: true
-  secretName: alertmanager-slack
-  key: slack_api_url
-
-# CloudWatch Exporter (prom/cloudwatch-exporter).
-# IRSA 로 cloudwatch:GetMetricData + tag:GetResources 권한 획득.
-cloudwatchExporter:
-  enabled: true
-  image: prom/cloudwatch-exporter:0.15.5
-  serviceAccountName: cloudwatch-exporter
-  # 배포 시 Application parameter 로 덮어쓴다.
-  roleArn: ""
-  region: ap-northeast-2
-  port: 9106
-  resources:
-    requests:
-      cpu: 50m
-      memory: 128Mi
-    limits:
-      cpu: 200m
-      memory: 256Mi
-  serviceMonitor:
-    enabled: true
-    interval: 60s
-    # kube-prometheus-stack Prometheus CR 이 ServiceMonitor 를 픽업하려면 이 label 이 필요.
-    labels:
-      release: kube-prometheus-stack
-
-# Redis Exporter (oliver006/redis_exporter) — ElastiCache 메트릭.
-# REDIS_ADDR 는 monitoring ns의 redis-host Secret(ESO 동기화) 에서 주입.
-redisExporter:
-  enabled: true
-  image: oliver006/redis_exporter:v1.62.0
-  port: 9121
-  # 배포 시 Application parameter 로 덮어쓰지 않아도 됨 — SSM 의 redis/host 값이 그대로 쓰임.
-  redisHostSecretName: redis-host
-  redisHostSecretKey: REDIS_HOST
-  resources:
-    requests:
-      cpu: 25m
-      memory: 64Mi
-    limits:
-      cpu: 100m
-      memory: 128Mi
-  serviceMonitor:
-    enabled: true
-    interval: 30s
-    labels:
-      release: kube-prometheus-stack
-
-# PrometheusRule (ticketing 앱/인프라 알람).
-prometheusRules:
-  enabled: true
-
-# Grafana Ingress — ALB ticketing group 에 /grafana 로 붙임.
-grafanaIngress:
-  enabled: true
-  scheme: internet-facing
-  groupName: ticketing
-  groupOrder: 200
-  serviceName: kube-prometheus-stack-grafana
-  servicePort: 80
+loki:
+  loki:
+    auth_enabled: false
+    storage:
+      type: filesystem
+    commonConfig:
+      replication_factor: 1
+  singleBinary:
+    replicas: 1
+    priorityClassName: ticketing-priority-platform
+    persistence:
+      enabled: true
+      storageClass: gp3
+      size: 20Gi
+  gateway:
+    enabled: false
+  # promtail은 별도 values로 설정 가능; 기본은 DaemonSet

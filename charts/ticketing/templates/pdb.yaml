@@ -1,15 +1,23 @@
-{{- range $name, $svc := .Values.services }}
-{{- if and $svc.pdb $svc.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: write-api-pdb
+  namespace: ticketing
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: write-api
+      pool: stable
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ $name }}-pdb
-  namespace: {{ $.Values.namespace }}
+  name: read-api-pdb
+  namespace: ticketing
 spec:
-  minAvailable: {{ $svc.pdb.minAvailable | default 1 }}
+  minAvailable: 1
   selector:
     matchLabels:
-      app: {{ $name }}
-{{- end }}
-{{- end }}
+      app: read-api
+      pool: stable

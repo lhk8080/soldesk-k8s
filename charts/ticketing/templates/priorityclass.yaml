@@ -1,10 +1,78 @@
-{{- range .Values.priorityClasses }}
+# PriorityClass.value 는 생성 후 변경 불가(immutable).
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: ticketing-priority-write-api-stable
+value: 260000
+globalDefault: false
+description: "write-api stable 1대 — 플랫폼(system-cluster-critical) 아래"
 ---
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
-  name: {{ .name }}
-value: {{ .value }}
+  name: ticketing-priority-read-api-stable
+value: 255000
 globalDefault: false
-description: {{ .description | quote }}
-{{- end }}
+description: "read-api stable 1대 — 플랫폼 아래"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: ticketing-priority-worker-bulk-stable
+value: 250000
+globalDefault: false
+description: "worker-svc stable 1대 — 플랫폼 아래, burst·devtools 위"
+---
+# burst: preemptionPolicy: Never → Running 파드를 쫓아내지 않음
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: ticketing-priority-write-api-burst
+value: 185000
+preemptionPolicy: Never
+globalDefault: false
+description: "write-api burst — 선점 없음"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: ticketing-priority-read-api-burst
+value: 180000
+preemptionPolicy: Never
+globalDefault: false
+description: "read-api burst — 선점 없음"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: ticketing-priority-worker-bulk-burst
+value: 9000
+preemptionPolicy: Never
+globalDefault: false
+description: "worker-svc KEDA 추가분 — 선점 없음"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: ticketing-priority-devtools
+value: 50000
+preemptionPolicy: Never
+globalDefault: false
+description: "도구 Pod — 선점 없음, 워커 강제 종료 방지"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: ticketing-priority-devtools-protected
+value: 270000
+preemptionPolicy: Never
+globalDefault: false
+description: "devtools 보호(선점 없음) — tools-once 등"
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: ticketing-priority-platform
+value: 300000
+globalDefault: false
+description: "플랫폼(monitoring/ArgoCD) — 앱 위, burst 선점 가능"

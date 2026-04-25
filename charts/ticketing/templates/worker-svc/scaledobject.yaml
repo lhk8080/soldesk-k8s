@@ -1,0 +1,43 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: worker-svc-sqs
+  namespace: ticketing
+  labels:
+    app: worker-svc
+  annotations:
+    # 기본 비활성. 활성화: kubectl annotate scaledobject worker-svc-sqs autoscaling.keda.sh/paused-
+    autoscaling.keda.sh/paused: "true"
+spec:
+  scaleTargetRef:
+    name: worker-svc-burst
+  pollingInterval: 2
+  cooldownPeriod: 180
+  minReplicaCount: 0
+  maxReplicaCount: 39
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+        scaleUp:
+          stabilizationWindowSeconds: 0
+          policies:
+            - type: Percent
+              value: 100
+              periodSeconds: 30
+            - type: Pods
+              value: 10
+              periodSeconds: 30
+          selectPolicy: Max
+  triggers:
+    - type: aws-sqs-queue
+      authenticationRef:
+        name: keda-worker-sqs-aws
+      metadata:
+        awsRegion: {{ .Values.config.awsRegion }}
+        # worker deployment env(SQS_QUEUE_URL)에서 큐 URL 읽음 → 계정별 URL 차이 흡수
+        queueURLFromEnv: SQS_QUEUE_URL
+        queueLength: "1"
+        activationQueueLength: "0"
+        scaleOnInFlight: "true"

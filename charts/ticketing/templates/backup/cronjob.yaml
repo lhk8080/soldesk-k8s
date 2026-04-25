@@ -1,0 +1,87 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: db-backup
+  namespace: ticketing
+  labels:
+    app: db-backup
+spec:
+  schedule: {{ .Values.backup.schedule | quote }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  startingDeadlineSeconds: 600
+  jobTemplate:
+    spec:
+      ttlSecondsAfterFinished: 3600
+      backoffLimit: 1
+      template:
+        spec:
+          serviceAccountName: db-backup-sa
+          restartPolicy: OnFailure
+          volumes:
+            - name: dump
+              emptyDir: {}
+          initContainers:
+            - name: mysqldump
+              image: mysql:8.0
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  TS="$(date -u +%Y%m%dT%H%M%SZ)"
+                  OUT="/backup/${DB_NAME}-${TS}.sql.gz"
+                  mysqldump \
+                    -h "${DB_WRITER_HOST}" \
+                    -P "${DB_PORT:-3306}" \
+                    -u "${DB_USER}" \
+                    --password="${DB_PASSWORD}" \
+                    --single-transaction --quick --routines --triggers \
+                    --set-gtid-purged=OFF --no-tablespaces \
+                    "${DB_NAME}" | gzip -c > "${OUT}"
+                  echo "${OUT}" > /backup/.dump_path
+              envFrom:
+                - configMapRef:
+                    name: ticketing-config
+                - secretRef:
+                    name: ticketing-secrets
+              volumeMounts:
+                - name: dump
+                  mountPath: /backup
+              resources:
+                requests:
+                  memory: "128Mi"
+                  cpu: "100m"
+                limits:
+                  memory: "512Mi"
+                  cpu: "500m"
+          containers:
+            - name: s3-upload
+              image: amazon/aws-cli:2.17.0
+              command:
+                - sh
+                - -c
+                - |
+                  set -eu
+                  DUMP="$(cat /backup/.dump_path)"
+                  KEY="backups/$(basename "${DUMP}")"
+                  aws s3 cp "${DUMP}" "s3://${S3_BUCKET}/${KEY}" --no-progress
+              env:
+                - name: AWS_REGION
+                  valueFrom:
+                    configMapKeyRef:
+                      name: ticketing-config
+                      key: AWS_REGION
+                - name: S3_BUCKET
+                  value: {{ .Values.backup.s3Bucket | quote }}
+              volumeMounts:
+                - name: dump
+                  mountPath: /backup
+              resources:
+                requests:
+                  memory: "64Mi"
+                  cpu: "50m"
+                limits:
+                  memory: "256Mi"
+                  cpu: "300m"

@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: ticketing
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+spec:
+  project: default
+  source:
+    # apply.sh 가 kubectl apply 전에 repoURL 을 실제 GitHub URL 로 교체
+    repoURL: https://github.com/lhk8080/soldesk-k8s.git
+    targetRevision: HEAD
+    path: charts/ticketing
+    helm:
+      valueFiles:
+        - ../../environments/prod/ticketing-values.yaml
+      # 아래 parameters 는 apply.sh 가 argocd app set 으로 런타임 주입
+      # --helm-set image.was.repository=<ECR_URL>
+      # --helm-set image.was.tag=<SHA>
+      # --helm-set image.worker.repository=<ECR_URL>
+      # --helm-set image.worker.tag=<SHA>
+      # --helm-set serviceAccount.sqsAccessRoleArn=<ARN>
+      # --helm-set serviceAccount.dbBackupRoleArn=<ARN>
+      # --helm-set backup.s3Bucket=<BUCKET>
+      # --helm-set config.sqsQueueUrl=<URL>
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: ticketing
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true

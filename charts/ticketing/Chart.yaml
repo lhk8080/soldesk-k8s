@@ -1,6 +1,6 @@
 apiVersion: v2
 name: ticketing
-description: Ticketing 워크로드 (read-api, write-api, worker-svc, worker-svc-ui)
+description: Ticketing application — read-api / write-api / worker-svc
 type: application
 version: 0.1.0
-appVersion: "0.1.0"
+appVersion: "latest"

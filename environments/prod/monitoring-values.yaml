@@ -1,0 +1,26 @@
+# prod 환경 오버라이드
+# esoRoleArn, awsRegion 은 apply.sh 가 helm.parameters 로 주입
+
+externalSecret:
+  secretStoreName: aws-parameter-store
+  refreshInterval: 1h
+  grafanaAdminPasswordKey: /ticketing/prod/GRAFANA_ADMIN_PASSWORD
+  slackWebhookKey: /ticketing/prod/ALERTMANAGER_SLACK_WEBHOOK
+
+kube-prometheus-stack:
+  grafana:
+    persistence:
+      size: 10Gi
+  prometheus:
+    prometheusSpec:
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            resources:
+              requests:
+                storage: 30Gi
+
+loki:
+  singleBinary:
+    persistence:
+      size: 20Gi

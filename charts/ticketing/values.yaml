@@ -1,227 +1,35 @@
-# 기본값. 환경별 오버라이드는 environments/<env>/values.yaml.
-
-namespace: ticketing
-secretName: ticketing-secrets
-configMapName: ticketing-config
-
-# ── 이미지 ────────────────────────────────────────────────────────────────────
-# repository는 보통 환경별 values에서 ECR 풀 패스로 오버라이드.
-# tag는 CI(soldesk-app GH Action)가 환경별 values에 commit.
-images:
+image:
   was:
-    repository: ticketing/ticketing-was
-    tag: latest
-    pullPolicy: Always
+    # 런타임 주입: apply.sh → argocd app set --helm-set image.was.repository=<ECR_URL>
+    repository: ""
+    tag: seed-pending
   worker:
-    repository: ticketing/worker-svc
-    tag: latest
-    pullPolicy: Always
+    repository: ""
+    tag: seed-pending
 
-# ── PriorityClass (전역 클러스터 자원) ──────────────────────────────────────
-priorityClasses:
-  - { name: ticketing-priority-write-api,    value: 200000, description: "write-api -- top priority" }
-  - { name: ticketing-priority-read-api,     value: 190000, description: "read-api" }
-  - { name: ticketing-priority-worker-ui,    value: 100000, description: "GUI queue (worker-svc-ui)" }
-  - { name: ticketing-priority-ops,          value:  50000, description: "one-off tools / DB tunnel" }
-  - { name: ticketing-priority-worker-bulk,  value:  10000, description: "bulk queue (worker-svc)" }
+serviceAccount:
+  # 런타임 주입: apply.sh → terraform output 에서 읽어 helm.parameters 로 전달
+  sqsAccessRoleArn: ""
+  dbBackupRoleArn: ""
 
-# ── ServiceAccount ────────────────────────────────────────────────────────────
-serviceAccounts:
-  sqs-access-sa:
-    annotations:
-      eks.amazonaws.com/role-arn: ""   # 환경별 values에서 채움 (terraform output)
-  # ESO가 ticketing-secrets를 머티리얼라이즈할 때 사용. SecretStore.spec.provider.aws.auth.jwt.serviceAccountRef 가 이 SA를 참조.
-  ticketing-eso-sa:
-    annotations:
-      eks.amazonaws.com/role-arn: ""   # apply.sh가 terraform output external_secrets_role_arn 으로 주입
-
-# ── External Secrets Operator (SSM → ticketing-secrets) ─────────────────────
-externalSecrets:
-  enabled: true
-  region: ap-northeast-2
-  ssmPrefix: /ticketing/prod              # apply.sh가 terraform output ssm_parameter_prefix 로 주입
-  serviceAccountName: ticketing-eso-sa
-  secretStoreName: ticketing-ssm
-  refreshInterval: 1h                     # SSM 변경 → Secret 반영 주기. 즉시 반영하려면 ExternalSecret을 annotate force-sync.
-
-# ── ConfigMap data ────────────────────────────────────────────────────────────
 config:
-  AWS_REGION: "ap-northeast-2"
-  DB_NAME: "ticketing"
-  DB_PORT: "3306"
-  REDIS_PORT: "6379"
-  DB_READ_REPLICA_ENABLED: "false"
+  awsRegion: ap-northeast-2
+  # SQS queue URL: apply.sh 가 terraform output sqs_reservation_url 로 주입
+  sqsQueueUrl: ""
 
-  CACHE_ENABLED: "true"
-  CACHE_WARMUP_ENABLED: "true"
-  CACHE_WARMUP_TOTAL_RUNS: "5"
-  CACHE_WARMUP_INTERVAL_SEC: "60"
-  CACHE_WARMUP_REPEAT_LIGHT: "false"
-  REDIS_MAX_CONNECTIONS: "50"
-  REDIS_SOCKET_TIMEOUT_SEC: "5"
-  REDIS_CONNECT_TIMEOUT_SEC: "3"
-  REDIS_HEALTH_CHECK_INTERVAL_SEC: "30"
-  ELASTICACHE_LOGICAL_DB_CACHE: "0"
-  ELASTICACHE_LOGICAL_DB_BOOKING: "1"
-  BOOKING_STATE_ENABLED: "true"
+backup:
+  schedule: "0 * * * *"
+  # apply.sh 가 terraform output frontend_bucket_id(assets bucket) 로 주입
+  s3Bucket: ""
 
-  CONCERT_CACHE_WARMUP_MODE: "minimal"
-  CONCERT_FIFO_SHARDS: "64"
-  CONCERT_SHOWS_META_TTL_SEC: "120"
-  CONCERTS_LIST_CACHE_TTL_SEC: "0"
-  CONCERT_DETAIL_CACHE_TTL_SEC: "0"
-
-  SQS_BOTO_MAX_ATTEMPTS: "5"
-  SQS_BOTO_RETRY_MODE: "adaptive"
-  SQS_CONNECT_TIMEOUT_SEC: "5"
-  SQS_READ_TIMEOUT_SEC: "30"
-  SQS_RECEIVE_MAX_MESSAGES: "10"
-  SQS_WAIT_TIME_SECONDS: "20"
-  SQS_POLL_ERROR_BACKOFF_SEC: "3"
-
-  WORKER_SQS_BATCH_CONCURRENCY: "10"
-  WORKER_SQS_POLLERS: "2"
-  WORKER_DB_MAX_CONCURRENT: "20"
-
-  BOOKING_QUEUED_TTL_SEC: "7200"
-  BOOKING_QUEUE_COUNTER_TTL_SEC: "7200"
-  BOOKING_RESULT_TTL_SEC: "3600"
-
-  CONCERT_SEAT_HOLD_TTL_SEC: "600"
-  CONCERT_CONFIRMED_SET_TTL_SEC: "0"
-  CONCERT_CONFIRMED_SET_GRACE_SEC: "21600"
-  CONCERT_REMAIN_SUBTRACT_WR_BACKLOG: "false"
-
-  WR_COUNTER_TTL_SEC: "7200"
-
-# ── 서비스(Deployment) ────────────────────────────────────────────────────────
-# 공통 기본값: replicas=1, resources(req 100m/128Mi, lim 300m/256Mi).
-# 각 서비스는 image 키로 .Values.images의 해당 항목을 참조.
-services:
-
-  read-api:
-    image: was
-    command: ["uvicorn", "read_app:app", "--host", "0.0.0.0", "--port", "5000"]
-    port: 5000
-    replicas: 1
-    priorityClassName: ticketing-priority-read-api
-    enableServiceLinks: false
-    resources:
-      requests: { cpu: 100m, memory: 128Mi }
-      limits:   { cpu: 300m, memory: 256Mi }
-    probes:
-      startup:   { path: /api/read/health, port: 5000, periodSeconds: 10, failureThreshold: 36 }
-      liveness:  { path: /api/read/health, port: 5000, initialDelaySeconds: 15, periodSeconds: 15 }
-      readiness: { path: /api/read/health, port: 5000, initialDelaySeconds: 5,  periodSeconds: 10 }
-    pdb: { enabled: true, minAvailable: 1 }
-    affinity:
-      antiColocateWith: [worker-svc, worker-svc-ui]
-      antiWeight: 80
-    topologySpread: true
-    service: { enabled: true }
-
-  write-api:
-    image: was
-    command: ["uvicorn", "write_app:app", "--host", "0.0.0.0", "--port", "5001"]
-    port: 5001
-    replicas: 1
-    serviceAccountName: sqs-access-sa
-    enableServiceLinks: false
-    resources:
-      requests: { cpu: 100m, memory: 128Mi }
-      limits:   { cpu: 300m, memory: 256Mi }
-    probes:
-      liveness:  { path: /api/write/health, port: 5001, initialDelaySeconds: 10, periodSeconds: 15 }
-      readiness: { path: /api/write/health, port: 5001, initialDelaySeconds: 5,  periodSeconds: 10 }
-    pdb: { enabled: true, minAvailable: 1 }
-    extraEnv:
-      - { name: CONCERT_FIFO_SHARDS, value: "64" }
-    service: { enabled: true }
-
-  worker-svc:
-    image: worker
-    port: 5002
-    replicas: 1
-    serviceAccountName: sqs-access-sa
-    enableServiceLinks: false
-    resources:
-      requests: { cpu: 100m, memory: 128Mi }
-      limits:   { cpu: 300m, memory: 256Mi }
-    probes:
-      liveness: { path: /health, port: 5002, initialDelaySeconds: 10, periodSeconds: 15 }
-    extraEnv:
-      - { name: WORKER_SQS_BATCH_CONCURRENCY, value: "20" }
-      - { name: WORKER_SQS_POLLERS,           value: "2" }
-      - { name: WORKER_DB_MAX_CONCURRENT,     value: "40" }
-    service: { enabled: true }
-    keda:
-      enabled: true
-      paused: true
-      pollingInterval: 5
-      cooldownPeriod: 300
-      minReplicas: 2
-      maxReplicas: 4
-      sqsQueueEnvVar: SQS_QUEUE_URL
-      queueLength: "2"
-      activationQueueLength: "1"
-      scaleOnInFlight: true
-      scaleDownStabilizationWindowSeconds: 180
-
-  worker-svc-ui:
-    image: worker
-    port: 5002
-    replicas: 1
-    serviceAccountName: sqs-access-sa
-    priorityClassName: ticketing-priority-worker-ui
-    enableServiceLinks: false
-    resources:
-      requests: { cpu: 100m, memory: 128Mi }
-      limits:   { cpu: 300m, memory: 256Mi }
-    probes:
-      liveness: { path: /health, port: 5002, initialDelaySeconds: 10, periodSeconds: 15 }
-    pdb: { enabled: true, minAvailable: 1 }
-    affinity:
-      antiColocateWith: [read-api, write-api]
-      antiWeight: 100
-    topologySpread: true
-    extraEnv:
-      # SQS_QUEUE_URL을 secret의 SQS_QUEUE_INTERACTIVE_URL에서 매핑
-      - name: SQS_QUEUE_URL
-        valueFrom:
-          secretKeyRef:
-            name: ticketing-secrets
-            key: SQS_QUEUE_INTERACTIVE_URL
-      - { name: WORKER_DB_MAX_CONCURRENT, value: "5" }
-    service: { enabled: true }
-    keda:
-      enabled: true
-      pollingInterval: 10
-      cooldownPeriod: 30
-      minReplicas: 1
-      maxReplicas: 5
-      sqsQueueEnvVar: SQS_QUEUE_URL
-      queueLength: "3"
-
-# ── KEDA 공통 ────────────────────────────────────────────────────────────────
-keda:
-  triggerAuthentication:
-    name: keda-worker-sqs-aws
-    podIdentityProvider: aws
-    identityOwner: keda
-
-# ── Ingress ──────────────────────────────────────────────────────────────────
-ingress:
-  enabled: true
-  name: ticketing-ingress
-  className: alb
-  annotations:
-    alb.ingress.kubernetes.io/scheme: internal
-    alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
-    alb.ingress.kubernetes.io/healthcheck-path: /api/read/health
-  rules:
-    - paths:
-        - { path: /api/read,  pathType: Prefix, service: read-api,  port: 5000 }
-        - { path: /api/write, pathType: Prefix, service: write-api, port: 5001 }
-        - { path: /health,    pathType: Prefix, service: read-api,  port: 5000 }
-        - { path: /,          pathType: Prefix, service: read-api,  port: 5000 }
+externalSecret:
+  # ClusterSecretStore 이름 (argocd/cluster-secret-store.yaml 에서 생성)
+  secretStoreName: aws-parameter-store
+  refreshInterval: 1h
+  # SSM Parameter Store 키 경로
+  dbWriterHostKey: /ticketing/prod/DB_WRITER_HOST
+  dbReaderHostKey: /ticketing/prod/DB_READER_HOST
+  dbUserKey: /ticketing/prod/DB_USER
+  dbPasswordKey: /ticketing/prod/DB_PASSWORD
+  elasticachePrimaryEndpointKey: /ticketing/prod/ELASTICACHE_PRIMARY_ENDPOINT
+  redisHostKey: /ticketing/prod/REDIS_HOST
