@@ -8,6 +8,9 @@ externalSecret:
   slackWebhookKey: /ticketing/prod/ALERTMANAGER_SLACK_WEBHOOK
 
 kube-prometheus-stack:
+  prometheusOperator:
+    admissionWebhooks:
+      enabled: false
   grafana:
     adminUser: root
     adminPassword: soldesk1
