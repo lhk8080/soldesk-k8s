@@ -21,6 +21,18 @@ kube-prometheus-stack:
                 storage: 30Gi
 
 loki:
+  deploymentMode: SingleBinary
   singleBinary:
+    replicas: 1
     persistence:
       size: 20Gi
+  read:
+    replicas: 0
+  write:
+    replicas: 0
+  backend:
+    replicas: 0
+  chunksCache:
+    enabled: false
+  resultsCache:
+    enabled: false
