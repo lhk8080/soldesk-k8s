@@ -16,7 +16,6 @@ kube-prometheus-stack:
     adminPassword: soldesk1
     deploymentStrategy:
       type: Recreate
-      rollingUpdate: null
     persistence:
       size: 10Gi
     ingress:
