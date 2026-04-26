@@ -9,8 +9,21 @@ externalSecret:
 
 kube-prometheus-stack:
   grafana:
+    adminUser: root
+    adminPassword: soldesk1
     persistence:
       size: 10Gi
+    ingress:
+      enabled: true
+      ingressClassName: alb
+      annotations:
+        alb.ingress.kubernetes.io/scheme: internet-facing
+        alb.ingress.kubernetes.io/target-type: ip
+        alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+        alb.ingress.kubernetes.io/backend-protocol: HTTP
+        alb.ingress.kubernetes.io/healthcheck-path: /api/health
+      path: /
+      pathType: Prefix
   prometheus:
     prometheusSpec:
       storageSpec:
