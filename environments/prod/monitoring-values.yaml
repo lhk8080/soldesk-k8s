@@ -12,7 +12,7 @@ kube-prometheus-stack:
     admissionWebhooks:
       enabled: false
   grafana:
-    adminUser: root
+    adminUser: admin
     adminPassword: soldesk1
     deploymentStrategy:
       type: Recreate
