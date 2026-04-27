@@ -8,6 +8,13 @@ metadata:
     pool: stable
 spec:
   replicas: 1
+  revisionHistoryLimit: 10
+  progressDeadlineSeconds: 600
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
   selector:
     matchLabels:
       app: worker-svc
@@ -46,9 +53,23 @@ spec:
             limits:
               memory: "256Mi"
               cpu: "300m"
+          startupProbe:
+            httpGet:
+              path: /health
+              port: 5002
+            periodSeconds: 10
+            failureThreshold: 60
           livenessProbe:
             httpGet:
               path: /health
               port: 5002
             initialDelaySeconds: 10
             periodSeconds: 15
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5002
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
