@@ -7,7 +7,7 @@ metadata:
     app: worker-svc
   annotations:
     # 기본 비활성. 활성화: kubectl annotate scaledobject worker-svc-sqs autoscaling.keda.sh/paused-
-    autoscaling.keda.sh/paused: "true"
+    autoscaling.keda.sh/paused: "false"
 spec:
   scaleTargetRef:
     name: worker-svc-burst
