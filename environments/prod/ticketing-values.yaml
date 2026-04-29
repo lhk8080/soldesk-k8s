@@ -2,6 +2,12 @@
 # 계정 고유 값(image repo, role ARN, SQS URL, S3 bucket)은 apply.sh 가 helm.parameters 로 주입
 # 여기서는 환경별 튜닝만 관리
 
+image:
+  was:
+    tag: b42cabd
+  worker:
+    tag: b42cabd
+
 config:
   awsRegion: ap-northeast-2
 
