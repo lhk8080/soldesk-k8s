@@ -3,7 +3,7 @@
 
 image:
   was:
-    tag: seed-pending
+    tag: 7fa4eb9
   worker:
     tag: seed-pending
 
