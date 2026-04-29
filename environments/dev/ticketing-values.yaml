@@ -5,7 +5,7 @@ image:
   was:
     tag: 21c9b47
   worker:
-    tag: seed-pending
+    tag: b42cabd
 
 config:
   awsRegion: ap-northeast-2
