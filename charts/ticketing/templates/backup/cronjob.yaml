@@ -1,8 +1,9 @@
+{{- if .Values.backup.enabled }}
 apiVersion: batch/v1
 kind: CronJob
 metadata:
   name: db-backup
-  namespace: ticketing
+  namespace: {{ .Release.Namespace }}
   labels:
     app: db-backup
 spec:
@@ -85,3 +86,4 @@ spec:
                 limits:
                   memory: "256Mi"
                   cpu: "300m"
+{{- end }}

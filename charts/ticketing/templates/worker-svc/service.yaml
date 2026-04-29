@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: worker-svc
-  namespace: ticketing
+  namespace: {{ .Release.Namespace }}
 spec:
   selector:
     app: worker-svc

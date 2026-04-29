@@ -2,10 +2,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: ticketing-config
-  namespace: ticketing
+  namespace: {{ .Release.Namespace }}
 data:
   AWS_REGION: {{ .Values.config.awsRegion | quote }}
-  DB_NAME: "ticketing"
+  DB_NAME: {{ .Values.config.dbName | quote }}
   DB_PORT: "3306"
   REDIS_PORT: "6379"
   DB_READ_REPLICA_ENABLED: "false"
@@ -39,7 +39,7 @@ data:
   SQS_BOTO_RETRY_MODE: "adaptive"
   SQS_CONNECT_TIMEOUT_SEC: "5"
   SQS_READ_TIMEOUT_SEC: "30"
-  SQS_QUEUE_NAME: "ticketing-reservation.fifo"
+  SQS_QUEUE_NAME: {{ .Values.config.sqsQueueName | quote }}
   SQS_QUEUE_URL: {{ .Values.config.sqsQueueUrl | quote }}
   SQS_RECEIVE_MAX_MESSAGES: "10"
   WORKER_SQS_BATCH_CONCURRENCY: "10"

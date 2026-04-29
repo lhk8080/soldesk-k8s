@@ -7,6 +7,16 @@ image:
     repository: ""
     tag: seed-pending
 
+# 차트가 namespace 를 직접 만들지 여부. ArgoCD syncOptions CreateNamespace=true 와 중복 가능 → 끌 수도 있음.
+namespace:
+  create: true
+
+# cluster-scoped 리소스 — 한 클러스터에 1번만 만들면 됨. dev 차트에선 false (prod 가 만든 것 공유).
+priorityClass:
+  enabled: true
+clusterSecretStore:
+  enabled: true
+
 serviceAccount:
   # 런타임 주입: apply.sh → terraform output 에서 읽어 helm.parameters 로 전달
   sqsAccessRoleArn: ""
@@ -14,10 +24,13 @@ serviceAccount:
 
 config:
   awsRegion: ap-northeast-2
+  dbName: ticketing
+  sqsQueueName: ticketing-reservation.fifo
   # SQS queue URL: apply.sh 가 terraform output sqs_reservation_url 로 주입
   sqsQueueUrl: ""
 
 backup:
+  enabled: true
   schedule: "0 * * * *"
   # apply.sh 가 terraform output frontend_bucket_id(assets bucket) 로 주입
   s3Bucket: ""

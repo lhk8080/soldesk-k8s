@@ -2,7 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: ticketing-ingress
-  namespace: ticketing
+  namespace: {{ .Release.Namespace }}
   annotations:
     # API GW VPC Link는 Internal ALB 필수 — internet-facing은 split-horizon DNS 미지원으로 9s timeout 발생
     alb.ingress.kubernetes.io/scheme: internal

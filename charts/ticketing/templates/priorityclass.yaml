@@ -1,3 +1,4 @@
+{{- if .Values.priorityClass.enabled }}
 # PriorityClass.value 는 생성 후 변경 불가(immutable).
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
@@ -76,3 +77,4 @@ metadata:
 value: 300000
 globalDefault: false
 description: "플랫폼(monitoring/ArgoCD) — 앱 위, burst 선점 가능"
+{{- end }}
