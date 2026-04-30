@@ -5,14 +5,13 @@ image:
   was:
     tag: 21c9b47
   worker:
-    tag: b42cabd
+    tag: 21c9b47
 
 config:
   awsRegion: ap-northeast-2
   dbName: ticketing_dev
   sqsQueueName: ticketing-reservation-dev.fifo
 
-# cluster-scoped 리소스는 prod 차트가 이미 만들어 둠 — dev 에선 끔
 priorityClass:
   enabled: false
 clusterSecretStore:
