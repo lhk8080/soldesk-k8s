@@ -4,9 +4,9 @@
 
 image:
   was:
-    tag: b42cabd
+    tag: 21c9b47
   worker:
-    tag: b42cabd
+    tag: 21c9b47
 
 config:
   awsRegion: ap-northeast-2
@@ -23,4 +23,3 @@ externalSecret:
 
 backup:
   schedule: "0 * * * *"
-# test
