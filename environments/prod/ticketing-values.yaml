@@ -4,9 +4,9 @@
 
 image:
   was:
-    tag: 2366e23
+    tag: "2366e23"
   worker:
-    tag: 68f964a
+    tag: "68f964a"
 
 config:
   awsRegion: ap-northeast-2
