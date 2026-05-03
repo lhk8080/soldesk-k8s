@@ -20,17 +20,10 @@ kube-prometheus-stack:
       type: Recreate
     persistence:
       size: 10Gi
+    # Ingress 는 monitoring 차트의 templates/grafana-ingress.yaml 에서 생성
+    # (단일 ALB IngressGroup 공유 + WAF 연결을 위해 standalone Ingress 사용)
     ingress:
-      enabled: true
-      ingressClassName: alb
-      annotations:
-        alb.ingress.kubernetes.io/scheme: internet-facing
-        alb.ingress.kubernetes.io/target-type: ip
-        alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
-        alb.ingress.kubernetes.io/backend-protocol: HTTP
-        alb.ingress.kubernetes.io/healthcheck-path: /api/health
-      path: /
-      pathType: Prefix
+      enabled: false
   prometheus:
     prometheusSpec:
       storageSpec:
