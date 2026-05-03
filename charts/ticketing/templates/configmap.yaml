@@ -4,6 +4,8 @@ metadata:
   name: ticketing-config
   namespace: {{ .Release.Namespace }}
 data:
+  IMAGE_TAG: {{ .Values.image.was.tag | quote }}
+  ENV: {{ .Values.config.env | default "prod" | quote }}
   AWS_REGION: {{ .Values.config.awsRegion | quote }}
   DB_NAME: {{ .Values.config.dbName | quote }}
   DB_PORT: "3306"

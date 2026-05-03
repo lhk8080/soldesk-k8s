@@ -8,6 +8,7 @@ image:
     tag: "2366e23"
 
 config:
+  env: dev
   awsRegion: ap-northeast-2
   dbName: ticketing_dev
   sqsQueueName: ticketing-reservation-dev.fifo
