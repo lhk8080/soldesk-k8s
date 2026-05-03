@@ -4,16 +4,28 @@ metadata:
   name: ticketing-ingress
   namespace: {{ .Release.Namespace }}
   annotations:
-    # API GW VPC Link는 Internal ALB 필수 — internet-facing은 split-horizon DNS 미지원으로 9s timeout 발생
-    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/scheme: {{ .Values.ingress.scheme | quote }}
     alb.ingress.kubernetes.io/target-type: ip
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    {{- if eq .Values.ingress.scheme "internal" }}
     # Internal ALB SG inbound 허용 — 없으면 VPC Link → ALB 트래픽 차단
-    alb.ingress.kubernetes.io/inbound-cidrs: "10.0.0.0/16"
+    # API GW VPC Link 는 Internal ALB 필수 — internet-facing 은 split-horizon DNS 미지원으로 9s timeout 발생
+    alb.ingress.kubernetes.io/inbound-cidrs: {{ .Values.ingress.inboundCidrs | quote }}
+    {{- end }}
+    {{- if .Values.ingress.groupName }}
+    alb.ingress.kubernetes.io/group.name: {{ .Values.ingress.groupName | quote }}
+    alb.ingress.kubernetes.io/group.order: {{ .Values.ingress.groupOrder | quote }}
+    {{- end }}
+    {{- if .Values.ingress.wafAclArn }}
+    alb.ingress.kubernetes.io/wafv2-acl-arn: {{ .Values.ingress.wafAclArn | quote }}
+    {{- end }}
 spec:
   ingressClassName: alb
   rules:
-    - http:
+    - {{- if .Values.ingress.host }}
+      host: {{ .Values.ingress.host | quote }}
+      {{- end }}
+      http:
         paths:
           - path: /api/read
             pathType: Prefix
