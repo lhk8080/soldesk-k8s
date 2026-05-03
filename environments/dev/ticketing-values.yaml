@@ -17,6 +17,13 @@ priorityClass:
 clusterSecretStore:
   enabled: false
 
+# dev 는 ops ALB(IngressGroup) 공유 — 비용 절감용. API GW 우회
+# host / wafAclArn 은 apply.sh 가 helm.parameters 로 주입
+ingress:
+  scheme: internet-facing
+  groupName: soldesk-ops
+  groupOrder: "30"
+
 externalSecret:
   secretStoreName: aws-parameter-store
   refreshInterval: 1h
