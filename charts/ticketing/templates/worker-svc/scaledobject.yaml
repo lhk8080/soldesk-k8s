@@ -9,14 +9,17 @@ spec:
   scaleTargetRef:
     name: worker-svc-burst
   pollingInterval: 2
-  cooldownPeriod: 180
+  # cooldownPeriod: 스케일 다운 후 안정화 기간 > 큐가 빈 직후에도 3분동안 진짜 줄어든 게 맞는지 확인
+  cooldownPeriod: 90
   minReplicaCount: 0
-  maxReplicaCount: 10
+  maxReplicaCount: 50
   advanced:
+    # HPA의 behavior 설정을 통해 스케일 업/다운 시 안정화 기간과 정책을 세밀하게 조정하여, 급격한 트래픽 변화에도 시스템이 안정적으로 대응할 수 있도록 함
     horizontalPodAutoscalerConfig:
       behavior:
         scaleDown:
-          stabilizationWindowSeconds: 300
+          # stabilizationWindowSeconds: 스케일 다운 후 안정화 기  간 > 5분동안 진짜 줄어든 게 맞는지 확인
+          stabilizationWindowSeconds: 180
         scaleUp:
           stabilizationWindowSeconds: 0
           policies:
