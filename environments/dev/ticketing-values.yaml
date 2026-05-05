@@ -3,9 +3,9 @@
 
 image:
   was:
-    tag: "2680fb2"
+    tag: "3de0f48"
   worker:
-    tag: "2366e23"
+    tag: "3de0f48"
 
 config:
   env: dev
