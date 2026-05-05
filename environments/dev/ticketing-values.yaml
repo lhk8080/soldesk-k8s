@@ -3,9 +3,9 @@
 
 image:
   was:
-    tag: "3de0f48"
+    tag: "2680fb2"
   worker:
-    tag: "3de0f48"
+    tag: "2366e23"
 
 config:
   env: dev
@@ -13,13 +13,14 @@ config:
   dbName: ticketing_dev
   sqsQueueName: ticketing-reservation-dev.fifo
 
+
+# 조건부 로직
 priorityClass:
   enabled: false
 clusterSecretStore:
   enabled: false
 
-# dev 는 ops ALB(IngressGroup) 공유 — 비용 절감용. API GW 우회
-# host / wafAclArn 은 apply.sh 가 helm.parameters 로 주입
+# dev 는 ops ALB(IngressGroup) 공유 — ALB에 따른 비용 절감. API GW 우회하여 테스트에 적합한 환경 구성
 ingress:
   scheme: internet-facing
   groupName: soldesk-ops
