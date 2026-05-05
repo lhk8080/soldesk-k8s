@@ -33,8 +33,11 @@ spec:
         name: keda-worker-sqs-aws
       metadata:
         awsRegion: {{ .Values.config.awsRegion }}
-        # worker deployment env(SQS_QUEUE_URL)에서 큐 URL 읽음 → 계정별 URL 차이 흡수
         queueURLFromEnv: SQS_QUEUE_URL
-        queueLength: "1"
+        # queueLength > 파드 하나당 동시에 들고 있을 목표 메시지 수
+        # desired = ceil((visible + inFlight) / queueLength)
+        queueLength: "30"
+        # activationQueueLength > 파드가 스케일 업하기 시작하는 메시지 수
         activationQueueLength: "0"
+        # scaleOnInFlight > 현재 파드 내에서 처리 중인 메시지 수를 고려하여 스케일링 여부 결정
         scaleOnInFlight: "true"
